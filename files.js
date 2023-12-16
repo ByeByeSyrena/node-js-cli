@@ -1,33 +1,30 @@
 const fs = require("fs").promises;
 const path = require("path");
-const chalk = require("chalk");
 const dataValidate = require("./helpers/dataValidator");
 const checkExtension = require("./helpers/checkExtension");
 
 const folderPath = path.join(__dirname, "files");
 
-async function createFile(fileName, content) {
-  const file = {
-    fileName,
-    content,
-  };
-
-  const { error } = dataValidate(file);
+async function createFile(req, res) {
+  const { error } = dataValidate(req.body);
+  const { fileName, content } = req.body;
 
   if (error) {
     const { path } = error.details[0];
-    console.log(chalk.red(`Please specify ${path[0]} parameter`));
+    res.status(400).json({
+      message: `Please specify ${path[0]} parameter`,
+    });
+
     return;
   }
 
   const { result, extension } = checkExtension(fileName);
 
   if (!result) {
-    console.log(
-      chalk.red(
-        `Sorry, this application doesn't support file with ${extension} extension`
-      )
-    );
+    res.status(400).json({
+      message: `Sorry, this application doesn't support file with ${extension} extension`,
+    });
+
     return;
   }
 
@@ -35,30 +32,38 @@ async function createFile(fileName, content) {
 
   try {
     await fs.writeFile(filePath, content, "utf-8");
-    console.log(chalk.green("file created successfully"));
+    res.status(201).json({
+      message: "file created successfully",
+    });
   } catch (err) {
-    console.log(chalk.red(err));
+    console.log(err);
+    res.status(500).json({
+      message: "file isn't created, all gone!!!",
+    });
   }
 }
 
-async function getFiles() {
+async function getFiles(req, res) {
   const result = await fs.readdir(folderPath);
 
   if (!result.length) {
-    console.log(chalk.red("Sorry, this folder is empty"));
+    res.status(404).json({
+      message: "Sorry, this folder is empty",
+    });
+
     return;
   }
 
-  result.forEach((file) => {
-    console.log(chalk.green(file));
-  });
+  res.status(200).json(result);
 }
 
-async function getFileInfo(fileName) {
+async function getFileInfo(req, res) {
   const files = await fs.readdir(folderPath);
 
+  const { fileName } = req.params;
+
   if (!files.includes(fileName)) {
-    console.log(chalk.red("Sorry, this file not found"));
+    res.status(404).json({ message: "Sorry, this file not found" });
     return;
   }
 
@@ -73,7 +78,7 @@ async function getFileInfo(fileName) {
     date: fileInfo.birthtime.toString(),
   };
 
-  console.log(info);
+  res.json(info);
 }
 
 module.exports = {
